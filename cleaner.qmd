@@ -1,6 +1,12 @@
 ---
 title: "Dengue raw data cleaner"
-format: html
+format: 
+  html:
+    toc: true
+    output-file: index
+  pdf:
+    toc: true
+    output-file: index
 ---
 
 # Load libraries

@@ -71,10 +71,57 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 
 </head>
 
-<body class="fullcontent">
+<body>
 
 <div id="quarto-content" class="page-columns page-rows-contents page-layout-article">
-
+<div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
+  <nav id="TOC" role="doc-toc" class="toc-active">
+    <h2 id="toc-title">Table of contents</h2>
+   
+  <ul>
+  <li><a href="#load-libraries" id="toc-load-libraries" class="nav-link active" data-scroll-target="#load-libraries">Load libraries</a></li>
+  <li><a href="#data-ingestion" id="toc-data-ingestion" class="nav-link" data-scroll-target="#data-ingestion">Data ingestion</a></li>
+  <li><a href="#eda-and-data-cleaning" id="toc-eda-and-data-cleaning" class="nav-link" data-scroll-target="#eda-and-data-cleaning">EDA and data cleaning</a>
+  <ul class="collapse">
+  <li><a href="#data-from-2000-2016" id="toc-data-from-2000-2016" class="nav-link" data-scroll-target="#data-from-2000-2016">Data from 2000-2016</a>
+  <ul class="collapse">
+  <li><a href="#selecting-columns-of-interest" id="toc-selecting-columns-of-interest" class="nav-link" data-scroll-target="#selecting-columns-of-interest">Selecting columns of interest</a></li>
+  <li><a href="#fix-age-if-possible" id="toc-fix-age-if-possible" class="nav-link" data-scroll-target="#fix-age-if-possible">Fix <code>age</code> if possible</a></li>
+  <li><a href="#rename-columns" id="toc-rename-columns" class="nav-link" data-scroll-target="#rename-columns">Rename columns</a></li>
+  <li><a href="#fix-dates-data" id="toc-fix-dates-data" class="nav-link" data-scroll-target="#fix-dates-data">Fix dates data</a></li>
+  <li><a href="#fix-sexes" id="toc-fix-sexes" class="nav-link" data-scroll-target="#fix-sexes">Fix sexes</a></li>
+  <li><a href="#fix-icd" id="toc-fix-icd" class="nav-link" data-scroll-target="#fix-icd">Fix ICD</a></li>
+  <li><a href="#fix-age-again" id="toc-fix-age-again" class="nav-link" data-scroll-target="#fix-age-again">Fix age, again</a></li>
+  <li><a href="#wrap-up" id="toc-wrap-up" class="nav-link" data-scroll-target="#wrap-up">Wrap up</a></li>
+  </ul></li>
+  <li><a href="#data-from-2017-2022" id="toc-data-from-2017-2022" class="nav-link" data-scroll-target="#data-from-2017-2022">Data from 2017-2022</a>
+  <ul class="collapse">
+  <li><a href="#selecting-columns-of-interest-1" id="toc-selecting-columns-of-interest-1" class="nav-link" data-scroll-target="#selecting-columns-of-interest-1">Selecting columns of interest</a></li>
+  <li><a href="#filter-cases-outside-of-hcmc" id="toc-filter-cases-outside-of-hcmc" class="nav-link" data-scroll-target="#filter-cases-outside-of-hcmc">Filter cases outside of HCMC</a></li>
+  <li><a href="#rename-columns-1" id="toc-rename-columns-1" class="nav-link" data-scroll-target="#rename-columns-1">Rename columns</a></li>
+  <li><a href="#fix-age" id="toc-fix-age" class="nav-link" data-scroll-target="#fix-age">Fix age</a></li>
+  <li><a href="#fix-dates" id="toc-fix-dates" class="nav-link" data-scroll-target="#fix-dates">Fix dates</a></li>
+  <li><a href="#fix-icd-1" id="toc-fix-icd-1" class="nav-link" data-scroll-target="#fix-icd-1">Fix ICD</a></li>
+  <li><a href="#fix-sexes-1" id="toc-fix-sexes-1" class="nav-link" data-scroll-target="#fix-sexes-1">Fix sexes</a></li>
+  <li><a href="#fix-districts" id="toc-fix-districts" class="nav-link" data-scroll-target="#fix-districts">Fix districts</a></li>
+  <li><a href="#fix-in-out-patient" id="toc-fix-in-out-patient" class="nav-link" data-scroll-target="#fix-in-out-patient">Fix in-/out-patient</a></li>
+  <li><a href="#wrap-up-1" id="toc-wrap-up-1" class="nav-link" data-scroll-target="#wrap-up-1">Wrap up</a></li>
+  </ul></li>
+  </ul></li>
+  <li><a href="#data-joining" id="toc-data-joining" class="nav-link" data-scroll-target="#data-joining">Data joining</a>
+  <ul class="collapse">
+  <li><a href="#hospital-names" id="toc-hospital-names" class="nav-link" data-scroll-target="#hospital-names">Hospital names</a></li>
+  <li><a href="#normalise-district-and-commune" id="toc-normalise-district-and-commune" class="nav-link" data-scroll-target="#normalise-district-and-commune">Normalise district and commune</a></li>
+  <li><a href="#export-to-csv" id="toc-export-to-csv" class="nav-link" data-scroll-target="#export-to-csv">Export to CSV</a></li>
+  </ul></li>
+  <li><a href="#data-viz" id="toc-data-viz" class="nav-link" data-scroll-target="#data-viz">Data viz</a>
+  <ul class="collapse">
+  <li><a href="#total-number-of-cases-per-hospital" id="toc-total-number-of-cases-per-hospital" class="nav-link" data-scroll-target="#total-number-of-cases-per-hospital">Total number of cases per hospital</a></li>
+  <li><a href="#data-availability-map" id="toc-data-availability-map" class="nav-link" data-scroll-target="#data-availability-map">Data availability map</a></li>
+  </ul></li>
+  </ul>
+<div class="quarto-alternate-formats"><h2>Other Formats</h2><ul><li><a href="index.pdf"><i class="bi bi-file-pdf"></i>PDF</a></li></ul></div></nav>
+</div>
 <main class="content" id="quarto-document-content">
 
 <header id="title-block-header" class="quarto-title-block default">
