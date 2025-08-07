@@ -14,7 +14,7 @@ format:
 .pkgs <- c("tidyverse", "janitor", "fs", "readxl", "skimr", "stringi")
 xfun::pkg_attach(.pkgs)
 
-set_theme(theme_bw())
+theme_set(theme_bw())
 ```
 
 # Data ingestion
@@ -23,7 +23,9 @@ Read raw excel files and quickly clean column names with `janitor::clean_names()
 ```{r}
 xlsx_raws <- dir_ls("incidence_data_2000_2022", regexp = "xlsx") %>%
   map(
-    ~ map(excel_sheets(.x), \(sh) suppressWarnings(read_excel(.x, sheet = sh)) %>% clean_names())
+    ~ map(excel_sheets(.x), \(sh) {
+      suppressWarnings(read_excel(.x, sheet = sh)) %>% clean_names()
+    })
   ) %>%
   flatten() %>%
   set_names(NULL)
@@ -89,10 +91,12 @@ s1_2000_2016 %>%
   select(hoten, tuoi, ng_sinh) %>%
   filter(is.na(tuoi)) %>%
   rowwise() %>%
-  mutate(no_age = any(
-    varhandle::check.numeric(hoten),
-    !is.na(ng_sinh)
-  )) %>%
+  mutate(
+    no_age = any(
+      varhandle::check.numeric(hoten),
+      !is.na(ng_sinh)
+    )
+  ) %>%
   tabyl(no_age)
 ```
 
@@ -220,8 +224,15 @@ The actual columns based on our columns of interest are (with `complete_rate`):
 ```{r}
 s1_2017_2022 <- raw_2017_2022 %>%
   select(
-    gioi, tuoi, ngay_nhap_vien, quan_huyen_noi_o, phuong_xa_noi_o,
-    don_vi_bao_cao, tinh_bao_cao, phan_do, tinh_trang_hien_tai
+    gioi,
+    tuoi,
+    ngay_nhap_vien,
+    quan_huyen_noi_o,
+    phuong_xa_noi_o,
+    don_vi_bao_cao,
+    tinh_bao_cao,
+    phan_do,
+    tinh_trang_hien_tai
   )
 s1_2017_2022 %>% skim()
 ```
@@ -247,10 +258,22 @@ s2_2017_2022 <- s1_2017_2022 %>%
       stri_trans_general(id = "Latin-ASCII") %>%
       str_replace_all("[. -]", "")
   ) %>%
-  filter(cleaned_tinh_bao_cao %in% c(
-    "benhviennhidong1", "benhviennhidong2", "benhvienquan4", "bvansinh",
-    "hcm", "hochiminh", "tpcm", "tphcm", "tphochiminh", "tpphcm"
-  ) | is.na(cleaned_tinh_bao_cao))
+  filter(
+    cleaned_tinh_bao_cao %in%
+      c(
+        "benhviennhidong1",
+        "benhviennhidong2",
+        "benhvienquan4",
+        "bvansinh",
+        "hcm",
+        "hochiminh",
+        "tpcm",
+        "tphcm",
+        "tphochiminh",
+        "tpphcm"
+      ) |
+      is.na(cleaned_tinh_bao_cao)
+  )
 
 s2_2017_2022 %>% tabyl(cleaned_tinh_bao_cao)
 ```
@@ -268,9 +291,22 @@ s2_2017_2022 %>% tabyl(don_vi_bao_cao)
 Manual cleaning based on an "eye test" and some quick Googling
 
 ```{r}
-s2b_2017_2022 <- s2_2017_2022 %>% filter(!(
-  don_vi_bao_cao %in% c("Bệnh viện Lê Lợi - Bà Rịa-V.Tàu", "Bệnh viện Quốc tế Becamex", "Bệnh viện đa khoa tỉnh Bình Dương", "Bệnh viện đa khoa tỉnh Đắk Lắk", "PKĐK Phước Lợi - Long An", "TTYT Thị xã Trảng Bàng", "Trung tâm Y tế  Huyện Vĩnh Hưng", "Trung tâm Y tế  Huyện Xuyên Mộc", "Trung tâm kiểm soát bệnh tật Long An", "Trung tâm y tế tỉnh Trà Vinh")
-))
+s2b_2017_2022 <- s2_2017_2022 %>%
+  filter(
+    !(don_vi_bao_cao %in%
+      c(
+        "Bệnh viện Lê Lợi - Bà Rịa-V.Tàu",
+        "Bệnh viện Quốc tế Becamex",
+        "Bệnh viện đa khoa tỉnh Bình Dương",
+        "Bệnh viện đa khoa tỉnh Đắk Lắk",
+        "PKĐK Phước Lợi - Long An",
+        "TTYT Thị xã Trảng Bàng",
+        "Trung tâm Y tế  Huyện Vĩnh Hưng",
+        "Trung tâm Y tế  Huyện Xuyên Mộc",
+        "Trung tâm kiểm soát bệnh tật Long An",
+        "Trung tâm y tế tỉnh Trà Vinh"
+      ))
+  )
 s2b_2017_2022 %>% skim()
 ```
 
@@ -402,9 +438,11 @@ s9_2017_2022 %>% tabyl(in_out_patient)
 Simplest things to do now are remove diacritics, normalise casing, normaling spacing
 
 ```{r}
-s9b_2017_2022 <- s9_2017_2022 %>% mutate(
-  in_out_patient = stri_trans_general(in_out_patient, id = "Latin-ASCII") %>% tolower()
-)
+s9b_2017_2022 <- s9_2017_2022 %>%
+  mutate(
+    in_out_patient = stri_trans_general(in_out_patient, id = "Latin-ASCII") %>%
+      tolower()
+  )
 
 s9b_2017_2022 %>%
   tabyl(in_out_patient) %>%
@@ -418,10 +456,20 @@ Lots of random stuff, but major are the in-, out-patient labels and some others 
 s10_2017_2022 <- s9b_2017_2022 %>%
   mutate(
     in_out_patient = case_when(
-      str_detect(in_out_patient, "(dieu tri)?.*n?g[opa]{2}[ij]{1,2}.*tr?u") ~ "out-patient",
-      str_detect(in_out_patient, "((di?eu t[tr][ij]{1})?.*no[it]{1}.*tr?[ui])|(n{1,2}hap vien)") ~ "in-patient",
-      str_detect(in_out_patient, "((ra|xuat|tron|bo).*vien)|((xin|bo|cho).*(ve|xv))|(ve nha)|(bo kham)") ~ "discharged",
-      str_detect(in_out_patient, "chuyen.*(benh|bv|vie[nb]|tuyen|khoa)") ~ "referred",
+      str_detect(in_out_patient, "(dieu tri)?.*n?g[opa]{2}[ij]{1,2}.*tr?u") ~
+        "out-patient",
+      str_detect(
+        in_out_patient,
+        "((di?eu t[tr][ij]{1})?.*no[it]{1}.*tr?[ui])|(n{1,2}hap vien)"
+      ) ~
+        "in-patient",
+      str_detect(
+        in_out_patient,
+        "((ra|xuat|tron|bo).*vien)|((xin|bo|cho).*(ve|xv))|(ve nha)|(bo kham)"
+      ) ~
+        "discharged",
+      str_detect(in_out_patient, "chuyen.*(benh|bv|vie[nb]|tuyen|khoa)") ~
+        "referred",
       .default = "miscellanous"
     )
   )
@@ -463,8 +511,10 @@ cleaned_incidence_dat %>% skim()
 
 
 ```{r}
-cleaned_incidence_dat %>% ggplot() +
-  geom_bar(aes(x = date, group = in_out_patient, fill = in_out_patient))
+cleaned_incidence_dat %>%
+  ggplot() +
+  geom_bar(aes(x = date, group = in_out_patient, fill = in_out_patient)) +
+  scale_x_date(date_breaks = "1 year", date_labels = "%Y")
 ```
 
 ## Hospital names
@@ -488,16 +538,17 @@ s1_cleaned_incidence_dat %>%
 
 Coding the names of the most busy hospitals
 ```{r}
-s2_cleaned_incidence_dat <- s1_cleaned_incidence_dat %>% mutate(
-  hospital = case_when(
-    str_detect(hospital, "benh vien benh nhiet doi") ~ "HTD",
-    str_detect(hospital, "nhi dong 1") ~ "CH1",
-    str_detect(hospital, "(nhi dong 2)|nd2") ~ "CH2",
-    str_detect(hospital, "nhi dong thanh pho") ~ "CHC",
-    str_detect(hospital, "tan phu") ~ "TPH",
-    .default = hospital
+s2_cleaned_incidence_dat <- s1_cleaned_incidence_dat %>%
+  mutate(
+    hospital = case_when(
+      str_detect(hospital, "benh vien benh nhiet doi") ~ "HTD",
+      str_detect(hospital, "nhi dong 1") ~ "CH1",
+      str_detect(hospital, "(nhi dong 2)|nd2") ~ "CH2",
+      str_detect(hospital, "nhi dong thanh pho") ~ "CHC",
+      str_detect(hospital, "tan phu") ~ "TPH",
+      .default = hospital
+    )
   )
-)
 
 s2_cleaned_incidence_dat %>%
   tabyl(hospital) %>%
@@ -514,7 +565,9 @@ s2_cleaned_incidence_dat %>%
 
 ```{r}
 s3_cleaned_incidence_dat <- s2_cleaned_incidence_dat %>%
-  mutate(district = stri_trans_general(district, id = "Latin-ASCII") %>% tolower()) %>%
+  mutate(
+    district = stri_trans_general(district, id = "Latin-ASCII") %>% tolower()
+  ) %>%
   mutate(district = str_remove(district, "huyen|quan") %>% trimws()) %>%
   mutate(district = trimws(district, which = "left", whitespace = "0"))
 
@@ -560,7 +613,11 @@ s3_cleaned_incidence_dat %>%
   ggplot(aes(x = week, y = n, color = in_out_patient)) +
   geom_line() +
   geom_point(size = 0.5) +
-  scale_x_date(date_breaks = "1 year", date_labels = "%Y", minor_breaks = NULL) +
+  scale_x_date(
+    date_breaks = "1 year",
+    date_labels = "%Y",
+    minor_breaks = NULL
+  ) +
   #   facet_wrap(~hospital, ncol = 1)
   facet_wrap(~hospital, ncol = 1, scales = "free_y")
 #   theme(legend.position = "none")
@@ -587,7 +644,11 @@ s3_cleaned_incidence_dat %>%
   ggplot(aes(x = week, y = n, color = in_out_patient)) +
   geom_line() +
   geom_point(size = 0.5) +
-  scale_x_date(date_breaks = "1 year", date_labels = "%Y", minor_breaks = NULL) +
+  scale_x_date(
+    date_breaks = "1 year",
+    date_labels = "%Y",
+    minor_breaks = NULL
+  ) +
   facet_wrap(~hospital, ncol = 1) +
   #   facet_wrap(~hospital, ncol = 1, scales = "free_y")
   theme(legend.position = "none")
@@ -611,8 +672,11 @@ s3_cleaned_incidence_dat %>%
   geom_raster() +
   facet_wrap(~in_out_patient, ncol = 1) +
   theme(legend.position = "none") +
-  scale_x_date(date_breaks = "1 year", date_labels = "%Y", minor_breaks = NULL) +
+  scale_x_date(
+    date_breaks = "1 year",
+    date_labels = "%Y",
+    minor_breaks = NULL
+  ) +
   scale_fill_viridis_c(na.value = "transparent")
-
 
 ```
