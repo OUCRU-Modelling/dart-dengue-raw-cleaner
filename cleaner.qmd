@@ -153,7 +153,7 @@ Impossible to know what "I" and "N" means skip this for now as it's not that imp
 
 ```{r}
 s3_2000_2016 %>%
-  mutate(year = year(date)) %>%
+  mutate(year = year(date), icd = tolower(icd)) %>%
   tabyl(icd, year)
 ```
 
@@ -377,7 +377,7 @@ s6_2017_2022 %>% skim()
 
 ```{r}
 s6_2017_2022 %>%
-  mutate(year = year(date)) %>%
+  mutate(year = year(date), icd = tolower(icd)) %>%
   tabyl(icd, year)
 ```
 
@@ -583,6 +583,12 @@ s3_cleaned_incidence_dat %>%
   View()
 ```
 
+```{r}
+s3_cleaned_incidence_dat %>%
+  filter(between(date, as.Date("2017-01-01"), as.Date("2020-01-01"))) %>%
+  tabyl(in_out_patient)
+```
+
 ## Export to CSV
 
 ```{r}
@@ -590,6 +596,87 @@ s3_cleaned_incidence_dat %>% write_csv("incidence_full.csv")
 ```
 
 # Data viz
+
+## Raw time series
+
+```{r}
+raw_ts_plot_dat <- s3_cleaned_incidence_dat %>%
+  group_by(district, date) %>%
+  tally() %>%
+  complete(date, fill = list(n = 0)) %>%
+  mutate(
+    year = year(date),
+    isoweek = isoweek(date),
+    # isoweek = ifelse(isoweek == 53, 52, isoweek)
+  ) %>%
+  group_by(district, year, isoweek) %>%
+  summarise(date = min(date), n = sum(n))
+
+raw_ts_plot_dat %>%
+  ggplot(aes(x = date, y = n)) +
+  geom_step() +
+  facet_wrap(~district, scales = "free_y", ncol = 4) +
+  scale_y_continuous("Weekly reported dengue incidence") +
+  scale_x_date(
+    "Date",
+    breaks = seq.Date(
+      as.Date("2000/01/01"),
+      as.Date("2023/01/01"),
+      by = "4 year"
+    ),
+    # date_breaks = "1 year",
+    date_labels = "%Y"
+  )
+
+raw_ts_plot_dat %>%
+  ggplot(aes(x = date, y = n)) +
+  annotate(
+    "rect",
+    xmin = as.Date("2020/01/01"),
+    xmax = as.Date("2022/01/01"),
+    ymin = 0,
+    ymax = max(raw_ts_plot_dat$n),
+    fill = "red",
+    alpha = 0.5
+  ) +
+  annotate(
+    "label",
+    x = as.Date("2018/08/15"),
+    y = 3400,
+    label = "COVID-19\nlockdowns",
+    color = "#ff4946"
+  ) +
+  geom_step() +
+  annotate(
+    "segment",
+    x = as.Date("2017/01/01"),
+    y = 0,
+    yend = max(raw_ts_plot_dat$n),
+    linetype = 2,
+    color = "blue"
+  ) +
+  annotate(
+    "label",
+    x = as.Date("2015/01/01"),
+    y = 3400,
+    label = "Circular\n54/2015/TT-BYT",
+    color = "blue"
+  ) +
+  scale_y_continuous("Weekly reported dengue incidence") +
+  scale_x_date(
+    "Date",
+    breaks = seq.Date(
+      as.Date("2000/01/01"),
+      as.Date("2023/01/01"),
+      by = "1 year"
+    ),
+    # date_breaks = "1 year",
+    date_labels = "%Y"
+  )
+
+ggsave("plots/raw_ts_plot.jpg", width = 10)
+```
+
 ## Total number of cases per hospital
 
 ```{r}
