@@ -46,9 +46,8 @@ compare_df_cols(xlsx_raws[-length(xlsx_raws)], return = "mismatch")
 ```
 
 Mismatched columns `cd_ravien`, `ng_bc`, `ng_tuvong` are insignificant, so we will go ahead with row binding all the sheets together
-::: {.callout-note}
-`xlsx_raws[-length(xlsx_raws)]` means look at all sheets from first file, ignore last sheet (i.e. second file)
-:::
+
+*`xlsx_raws[-length(xlsx_raws)]` means look at all sheets from first file, ignore last sheet (i.e. second file)*
 
 ```{r}
 raw_2000_2016 <- xlsx_raws[-length(xlsx_raws)] %>% bind_rows()
@@ -579,8 +578,7 @@ Now normalise commune names
 
 ```{r}
 s3_cleaned_incidence_dat %>%
-  tabyl(district, commune) %>%
-  View()
+  tabyl(district, commune)
 ```
 
 ```{r}
@@ -599,7 +597,7 @@ s3_cleaned_incidence_dat %>% write_csv("incidence_full.csv")
 
 ## Raw time series
 
-```{r}
+```{r eval=FALSE}
 raw_ts_plot_dat <- s3_cleaned_incidence_dat %>%
   group_by(district, date) %>%
   tally() %>%
@@ -609,7 +607,7 @@ raw_ts_plot_dat <- s3_cleaned_incidence_dat %>%
     isoweek = isoweek(date),
     # isoweek = ifelse(isoweek == 53, 52, isoweek)
   ) %>%
-  group_by(district, year, isoweek) %>%
+  group_by(year, isoweek) %>%
   summarise(date = min(date), n = sum(n))
 
 raw_ts_plot_dat %>%
