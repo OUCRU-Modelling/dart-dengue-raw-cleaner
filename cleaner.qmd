@@ -641,6 +641,11 @@ raw_ts_plot_dat %>%
     fill = "red",
     alpha = 0.5
   ) +
+  geom_vline(
+    xintercept = as.Date("2020/01/01"),
+    linetype = "dashed",
+    alpha = 0.5
+  ) +
   annotate(
     "label",
     x = as.Date("2020/01/01"),
@@ -665,13 +670,14 @@ raw_ts_plot_dat %>%
     label = "Circular\n54/2017/TT-BYT\nin effect",
     color = "blue"
   ) +
-  scale_y_continuous("Weekly reported dengue incidence") +
+  scale_y_continuous("") +
   scale_x_date(
     "",
     date_breaks = "2 years",
     date_minor_breaks = "1 year",
     date_labels = "%Y"
-  )
+  ) +
+  ggtitle("Weekly reported dengue incidence in HCMC")
 
 ggsave("plots/raw_ts_plot.jpg", width = 10)
 ```
