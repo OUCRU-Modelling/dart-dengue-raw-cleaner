@@ -599,7 +599,7 @@ s3_cleaned_incidence_dat %>% write_csv("incidence_full.csv")
 
 ```{r eval=FALSE}
 raw_ts_plot_dat <- s3_cleaned_incidence_dat %>%
-  group_by(district, date) %>%
+  group_by(across(any_of(c("district", "date")))) %>%
   tally() %>%
   complete(date, fill = list(n = 0)) %>%
   mutate(
@@ -613,21 +613,17 @@ raw_ts_plot_dat <- s3_cleaned_incidence_dat %>%
 raw_ts_plot_dat %>%
   ggplot(aes(x = date, y = n)) +
   geom_step() +
-  facet_wrap(~district, scales = "free_y", ncol = 4) +
+  # facet_wrap(~district, scales = "free_y", ncol = 4) +
   scale_y_continuous("Weekly reported dengue incidence") +
   scale_x_date(
-    "Date",
-    breaks = seq.Date(
-      as.Date("2000/01/01"),
-      as.Date("2023/01/01"),
-      by = "4 year"
-    ),
-    # date_breaks = "1 year",
+    "",
+    date_breaks = "4 years",
     date_labels = "%Y"
   )
 
 raw_ts_plot_dat %>%
   ggplot(aes(x = date, y = n)) +
+  # covid lockdown period
   annotate(
     "rect",
     xmin = as.Date("2020/01/01"),
@@ -639,36 +635,33 @@ raw_ts_plot_dat %>%
   ) +
   annotate(
     "label",
-    x = as.Date("2018/08/15"),
+    x = as.Date("2020/01/01"),
     y = 3400,
     label = "COVID-19\nlockdowns",
     color = "#ff4946"
   ) +
   geom_step() +
+  # circ 54
   annotate(
     "segment",
-    x = as.Date("2017/01/01"),
+    x = as.Date("2018/01/01"),
     y = 0,
-    yend = max(raw_ts_plot_dat$n),
+    yend = 2800,
     linetype = 2,
     color = "blue"
   ) +
   annotate(
     "label",
-    x = as.Date("2015/01/01"),
-    y = 3400,
-    label = "Circular\n54/2015/TT-BYT",
+    x = as.Date("2018/01/01"),
+    y = 2800,
+    label = "Circular\n54/2017/TT-BYT\nin effect",
     color = "blue"
   ) +
   scale_y_continuous("Weekly reported dengue incidence") +
   scale_x_date(
-    "Date",
-    breaks = seq.Date(
-      as.Date("2000/01/01"),
-      as.Date("2023/01/01"),
-      by = "1 year"
-    ),
-    # date_breaks = "1 year",
+    "",
+    date_breaks = "2 years",
+    date_minor_breaks = "1 year",
     date_labels = "%Y"
   )
 
