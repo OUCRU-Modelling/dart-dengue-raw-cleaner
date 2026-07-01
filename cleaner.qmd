@@ -94,7 +94,7 @@ The actual columns based on our columns of interest are (with
 
 -   `sex` = `gioi` (0.957)
 
--   `age` = `tuoi` (0.851); `ng_sinh` (0.782); year of birth might be in
+-   `age` = `tuoi` (0.851); `ng_sinh` (0.783); year of birth might be in
     `hoten` col
 
 -   `date of admission` = `ng_vaovien` (1)
@@ -103,7 +103,7 @@ The actual columns based on our columns of interest are (with
 
 -   `commune` = `px` (1)
 
--   `new_commune` = `px_moi` (0.903)
+-   `new_commune` = `px_moi` (0.904)
 
 -   `hospital` = `nguon_du_lieu` (1)
 
