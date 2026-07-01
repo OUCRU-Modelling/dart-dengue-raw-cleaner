@@ -7,9 +7,13 @@ format:
   pdf:
     toc: true
     output-file: index
+editor: 
+  markdown: 
+    wrap: 72
 ---
 
 # Load libraries
+
 ```{r}
 .pkgs <- c(
   "tidyverse",
@@ -26,72 +30,103 @@ theme_set(theme_bw())
 ```
 
 # Data ingestion
-Read raw excel files and quickly clean column names with `janitor::clean_names()`
+
+Read raw excel files and quickly clean column names with
+`janitor::clean_names()`
 
 ```{r}
-xlsx_raws <- dir_ls("incidence_data_2000_2022", regexp = "xlsx") %>%
+xlsx_raws <- list.files("incidence_data", pattern = "xlsx", full.names = TRUE) %>%
   map(
     ~ map(excel_sheets(.x), \(sh) {
       suppressWarnings(read_excel(.x, sheet = sh)) %>% clean_names()
     })
   ) %>%
-  flatten() %>%
   set_names(NULL)
 ```
 
-Our columns of interest are: "sex", "age", "date of admission", "district (of patient's residential address)", "commune (of patient's residential address)", "hospital", "icd", "in-/out-patient"
+Our columns of interest are: "sex", "age", "date of admission",
+"district (of patient's residential address)", "commune (of patient's
+residential address)", "hospital", "icd", "in-/out-patient"
 
 # EDA and data cleaning
-There are 2 excel files, first file contains cases from 2000-2016, a separate sheet for each year. Second find contains cases from 2017-2022, all in one sheet. The 2 files contains 2 different format of columns because they come from 2 different reporting systems. 
+
+There are 3 excel files
+
+-   First file contains cases from 2000-2016, a separate sheet for each
+    year.
+
+-   Second file contains cases from 2017-2025, a separate sheet for each
+    year
+
+-   Third file contains cases from August 2025 (after major change in
+    admin level).
 
 ## Data from 2000-2016
-First we will look at data from 2000-2016
 
 We can look at mismatched columns for all the sheets
 
 ```{r}
-compare_df_cols(xlsx_raws[-length(xlsx_raws)], return = "mismatch")
+compare_df_cols(xlsx_raws[[1]], return = "mismatch")
 ```
 
-Mismatched columns `cd_ravien`, `ng_bc`, `ng_tuvong` are insignificant, so we will go ahead with row binding all the sheets together
+Mismatched columns `cd_ravien`, `ng_bc`, `ng_tuvong` are insignificant,
+so we will go ahead with row binding all the sheets together
 
-*`xlsx_raws[-length(xlsx_raws)]` means look at all sheets from first file, ignore last sheet (i.e. second file)*
+*`xlsx_raws[-length(xlsx_raws)]` means look at all sheets from first
+file, ignore last sheet (i.e. second file)*
 
 ```{r}
-raw_2000_2016 <- xlsx_raws[-length(xlsx_raws)] %>% bind_rows()
+raw_2000_2016 <- xlsx_raws[[1]] %>% bind_rows()
 ```
 
 Skimming to see what's going on in the data
+
 ```{r}
 skim(raw_2000_2016)
 ```
 
-The actual columns based on our columns of interest are (with `complete_rate`):
-  - `sex` = `gioi` (0.957)
-  - `age` = `tuoi` (0.851); `ng_sinh` (0.873); year of birth might be in `hoten` col
-  - `date of admission` = `ng_vaovien` (1)
-  - `district` = `qh` (1)
-  - `commune` = `px` (1)
-  - `hospital` = `nguon_du_lieu` (1)
-  - `icd` = `m_icd` (0.949)
-  - `in-patient` = this is all in-patient data
+The actual columns based on our columns of interest are (with
+`complete_rate`):
+
+-   `sex` = `gioi` (0.957)
+
+-   `age` = `tuoi` (0.851); `ng_sinh` (0.782); year of birth might be in
+    `hoten` col
+
+-   `date of admission` = `ng_vaovien` (1)
+
+-   `district` = `qh` (1)
+
+-   `commune` = `px` (1)
+
+-   `new_commune` = `px_moi` (0.903)
+
+-   `hospital` = `nguon_du_lieu` (1)
+
+-   `icd` = `m_icd` (0.949)
+
+-   `in-patient` = this is all in-patient data
 
 ### Selecting columns of interest
 
 ```{r}
 s1_2000_2016 <- raw_2000_2016 %>%
-  select(hoten, gioi, tuoi, ng_sinh, ng_vaovien, qh, px, nguon_du_lieu, m_icd)
+  select(hoten, gioi, tuoi, ng_sinh, ng_vaovien, qh, px, px_moi, nguon_du_lieu, m_icd)
 # s1_2000_2016
 ```
 
-Keeping track of raw number of rows at start to see how much lost during data cleaning
+Keeping track of raw number of rows at start to see how much lost during
+data cleaning
+
 ```{r}
 start_nrow <- nrow(s1_2000_2016)
 start_nrow
 ```
 
 ### Fix `age` if possible
-Some year of births (YOBs) are stored in the name (`hoten`) column, let's see how much of the data is like this
+
+Some year of births (YOBs) are stored in the name (`hoten`) column,
+let's see how much of the data is like this
 
 ```{r}
 s1_2000_2016 %>%
@@ -107,7 +142,8 @@ s1_2000_2016 %>%
   tabyl(no_age)
 ```
 
-Less than 1% of the data has YOB in the name column and able to get age from YOB, so it's not worth going deeper.
+Less than 1% of the data has YOB in the name column and able to get age
+from YOB, so it's not worth going deeper.
 
 For now, people with no age will have `NA` as their age
 
@@ -122,6 +158,7 @@ s2_2000_2016 <- s1_2000_2016 %>%
     date = ng_vaovien,
     district = qh,
     commune = px,
+    new_commune = px_moi,
     hospital = nguon_du_lieu,
     icd = m_icd
   ) %>%
@@ -132,6 +169,7 @@ s2_2000_2016 <- s1_2000_2016 %>%
 ```
 
 ### Fix dates data
+
 Date data is in `datetime`, convert to `date` only
 
 ```{r}
@@ -140,21 +178,36 @@ s3_2000_2016 <- s2_2000_2016 %>%
 # s3_2000_2016
 ```
 
-
 ```{r}
 skim(s3_2000_2016)
 ```
 
-We see that there are 7 unique sexes, 37 unique ICDs, negative age. Let's clean all of this
+We see that there are 7 unique sexes, 37 unique ICDs, negative age.
+Let's clean all of this
 
 ### Fix sexes
+
 Look into `sex` column first
 
 ```{r}
 s3_2000_2016 %>% tabyl(sex)
 ```
 
-Impossible to know what "I" and "N" means skip this for now as it's not that important
+Impossible to know what "I" and "N", treat these as NA instead
+
+Relabel `sex` column
+
+```{r}
+s3_2000_2016 <- s3_2000_2016 |> 
+  mutate(
+    sex = tolower(sex),
+    sex = case_when(
+      sex == "g" ~ "f",
+      sex == "t" ~ "m",
+      .default=NA
+    )
+  )
+```
 
 ### Fix ICD
 
@@ -180,7 +233,7 @@ s3_2000_2016 %>%
   tabyl(age)
 ```
 
-Then let's drop negative age and age > 90
+Then let's drop negative age and age \> 90
 
 ```{r}
 s4_2000_2016 <- s3_2000_2016 %>%
@@ -191,6 +244,7 @@ s4_2000_2016 %>% skim()
 ```
 
 ### Wrap up
+
 Probably finished cleaning 2000-2016 data for now
 
 Let's check final number of rows
@@ -203,187 +257,115 @@ start_nrow - nrow(s4_2000_2016)
 
 Lost about 15% of rows
 
-## Data from 2017-2022
+## Data from 2017-2025
+
 Extract the data
 
 ```{r}
-raw_2017_2022 <- xlsx_raws[length(xlsx_raws)][[1]]
+raw_2017_2025 <- xlsx_raws[[2]] |> bind_rows()
 ```
 
 Quick skim at the data
 
 ```{r}
-skim(raw_2017_2022)
+skim(raw_2017_2025)
 ```
 
-The actual columns based on our columns of interest are (with `complete_rate`):
-  - `sex` = `gioi` (1)
-  - `age` = `tuoi` (1.00)
-  - `date of admission` = `ngay_nhap_vien` (1)
-  - `district` = `quan_huyen_noi_o` (1)
-  - `commune` = `phuong_xa_noi_o` (1)
-  - `hospital` = `don_vi_bao_cao` (1.00) -- lots of cases out of HCMC -> filter with `tinh_bao_cao` (0.999)
-  - `icd` = `phan_do` (0.252)
-  - `in-patient` = `tinh_trang_hien_tai` (1.00) -- very complex freetext
+The actual columns based on our columns of interest are (with
+`complete_rate`):
+
+-   `age` = `tuoi` (0.999)
+
+-   `date of admission` = `ngay_nhap_vien_kham_benh` (1)
+
+-   `district` = `quan_huyen_cu` (1)
+
+-   `commune` = `phuong_xa_cu` (1)
+
+-   `new_commune` = `px_moi` (0.975)
+
+-   `icd` = `phan_do_benh` (0.252)
+
+-   `in-patient` = `hinh_thuc_dieu_tri` (1.00)
 
 ### Selecting columns of interest
 
 ```{r}
-s1_2017_2022 <- raw_2017_2022 %>%
+s1_2017_2025 <- raw_2017_2025 %>%
   select(
-    gioi,
     tuoi,
-    ngay_nhap_vien,
-    quan_huyen_noi_o,
-    phuong_xa_noi_o,
-    don_vi_bao_cao,
-    tinh_bao_cao,
-    phan_do,
-    tinh_trang_hien_tai
+    ngay_nhap_vien_kham_benh,
+    quan_huyen_cu,
+    phuong_xa_cu,
+    px_moi,
+    phan_do_benh,
+    hinh_thuc_dieu_tri
   )
-s1_2017_2022 %>% skim()
+s1_2017_2025 %>% skim()
 ```
 
-Keeping track of raw number of rows at start to see how much lost during data cleaning
+Keeping track of raw number of rows at start to see how much lost during
+data cleaning
+
 ```{r}
-start_nrow2 <- nrow(s1_2017_2022)
+start_nrow2 <- nrow(s1_2017_2025)
 start_nrow2
 ```
 
-### Filter cases outside of HCMC
-First, let's filter out cases that are reported outside of HCMC.
-
-```{r}
-s1_2017_2022 %>% tabyl(tinh_bao_cao)
-```
-
-Filter based on reporting province
-```{r}
-s2_2017_2022 <- s1_2017_2022 %>%
-  mutate(
-    cleaned_tinh_bao_cao = tolower(tinh_bao_cao) %>%
-      stri_trans_general(id = "Latin-ASCII") %>%
-      str_replace_all("[. -]", "")
-  ) %>%
-  filter(
-    cleaned_tinh_bao_cao %in%
-      c(
-        "benhviennhidong1",
-        "benhviennhidong2",
-        "benhvienquan4",
-        "bvansinh",
-        "hcm",
-        "hochiminh",
-        "tpcm",
-        "tphcm",
-        "tphochiminh",
-        "tpphcm"
-      ) |
-      is.na(cleaned_tinh_bao_cao)
-  )
-
-s2_2017_2022 %>% tabyl(cleaned_tinh_bao_cao)
-```
-
-```{r}
-s2_2017_2022 %>% skim()
-```
-
-Filter based on reporting hospital
-
-```{r}
-s2_2017_2022 %>% tabyl(don_vi_bao_cao)
-```
-
-Manual cleaning based on an "eye test" and some quick Googling
-
-```{r}
-s2b_2017_2022 <- s2_2017_2022 %>%
-  filter(
-    !(don_vi_bao_cao %in%
-      c(
-        "Bệnh viện Lê Lợi - Bà Rịa-V.Tàu",
-        "Bệnh viện Quốc tế Becamex",
-        "Bệnh viện đa khoa tỉnh Bình Dương",
-        "Bệnh viện đa khoa tỉnh Đắk Lắk",
-        "PKĐK Phước Lợi - Long An",
-        "TTYT Thị xã Trảng Bàng",
-        "Trung tâm Y tế  Huyện Vĩnh Hưng",
-        "Trung tâm Y tế  Huyện Xuyên Mộc",
-        "Trung tâm kiểm soát bệnh tật Long An",
-        "Trung tâm y tế tỉnh Trà Vinh"
-      ))
-  )
-s2b_2017_2022 %>% skim()
-```
-
-Filter out cases where the reporting hospital is null (only 1 case)
-
-```{r}
-s2c_2017_2022 <- s2b_2017_2022 %>% drop_na(don_vi_bao_cao)
-s2c_2017_2022 %>% skim()
-```
-
-Wrapping this up
-
-
-```{r}
-s3_2017_2022 <- s2c_2017_2022 %>% select(-tinh_bao_cao, -cleaned_tinh_bao_cao)
-```
-
 ### Rename columns
+
 Let's rename columns before continuing
 
 ```{r}
-s4_2017_2022 <- s3_2017_2022 %>%
+s2_2017_2025 <- s1_2017_2025 %>%
   rename(
-    sex = gioi,
     age = tuoi,
-    date = ngay_nhap_vien,
-    district = quan_huyen_noi_o,
-    commune = phuong_xa_noi_o,
-    hospital = don_vi_bao_cao,
-    icd = phan_do,
-    in_out_patient = tinh_trang_hien_tai
+    date = ngay_nhap_vien_kham_benh,
+    district = quan_huyen_cu,
+    commune = phuong_xa_cu,
+    new_commune = px_moi,
+    icd = phan_do_benh,
+    in_out_patient = hinh_thuc_dieu_tri
   )
 
-s4_2017_2022 %>% skim()
+s2_2017_2025 %>% skim()
 ```
 
 ### Fix age
+
 We see the same problem with some negative age and YOB put in as age
 
 ```{r}
-s4_2017_2022 %>% tabyl(age)
+s2_2017_2025 %>% tabyl(age)
 ```
 
-
 ```{r}
-s5_2017_2022 <- s4_2017_2022 %>%
+s3_2017_2025 <- s2_2017_2025 %>%
   mutate(age = if_else(age > 2000, year(date) - age, age)) %>%
   filter(age >= 0, age < 91)
 
-s5_2017_2022 %>% tabyl(age)
+s3_2017_2025 %>% tabyl(age)
 ```
 
 ```{r}
-s5_2017_2022 %>% skim()
+s3_2017_2025 %>% skim()
 ```
 
 ### Fix dates
+
 Date data is in `datetime`, convert to `date` only
 
 ```{r}
-s6_2017_2022 <- s5_2017_2022 %>%
+s4_2017_2025 <- s3_2017_2025 %>%
   mutate(date = convert_to_date(date))
 
-s6_2017_2022 %>% skim()
+s4_2017_2025 %>% skim()
 ```
 
 ### Fix ICD
 
 ```{r}
-s6_2017_2022 %>%
+s4_2017_2025 %>%
   mutate(year = year(date), icd = tolower(icd)) %>%
   tabyl(icd, year)
 ```
@@ -391,131 +373,277 @@ s6_2017_2022 %>%
 Mostly inconsistent letter casing, the classes are rather consistent
 
 ```{r}
-s7_2017_2022 <- s6_2017_2022 %>%
+s5_2017_2025 <- s4_2017_2025 %>%
   mutate(icd = tolower(icd))
 
-s7_2017_2022 %>%
+s5_2017_2025 %>%
   mutate(year = year(date)) %>%
   tabyl(icd, year)
 ```
 
-### Fix sexes
-```{r}
-s7_2017_2022 %>% tabyl(sex)
-```
-
-Very easy fix, just remove diacritics, normalise letter casing and recode into english
-
-```{r}
-s8_2017_2022 <- s7_2017_2022 %>%
-  mutate(sex = stri_trans_general(sex, id = "Latin-ASCII") %>% tolower()) %>%
-  mutate(sex = case_when(sex == "nam" ~ "male", sex == "nu" ~ "female"))
-
-s8_2017_2022 %>% tabyl(sex)
-```
-
-```{r}
-s8_2017_2022 %>% skim()
-```
-
-See that there are 25 districts, instead of 24, let's see what's wrong
-
-```{r}
-s8_2017_2022 %>% tabyl(district)
-```
-
-Just letter casing issue, let's normalise that
-
 ### Fix districts
 
 ```{r}
-s9_2017_2022 <- s8_2017_2022 %>% mutate(district = tolower(district))
+s6_2017_2025 <- s5_2017_2025 %>% mutate(district = tolower(district))
 
-s9_2017_2022 %>% skim()
+s6_2017_2025 %>% skim()
 ```
 
 ### Fix in-/out-patient
 
-Now let's do the hardest part, fixing in-patient and out-patient classification
+Now let's fix in-patient and out-patient classification
 
 ```{r}
-s9_2017_2022 %>% tabyl(in_out_patient)
+s6_2017_2025 %>% tabyl(in_out_patient)
 ```
 
-Simplest things to do now are remove diacritics, normalise casing, normaling spacing
+Simplest things to do now are remove diacritics, normalise casing,
+normaling spacing
 
 ```{r}
-s9b_2017_2022 <- s9_2017_2022 %>%
+s7_2017_2025 <- s6_2017_2025 %>%
   mutate(
     in_out_patient = stri_trans_general(in_out_patient, id = "Latin-ASCII") %>%
       tolower()
   )
 
-s9b_2017_2022 %>%
+s7_2017_2025 %>%
   tabyl(in_out_patient) %>%
   arrange(desc(n))
 ```
 
-Lots of random stuff, but major are the in-, out-patient labels and some others (e.g. referred, discharged). The only way to fix this seems to be by hand with regex
-
+Relabel `in_out_patient` status
 
 ```{r}
-s10_2017_2022 <- s9b_2017_2022 %>%
+s8_2017_2025 <- s7_2017_2025 %>%
   mutate(
     in_out_patient = case_when(
-      str_detect(in_out_patient, "(dieu tri)?.*n?g[opa]{2}[ij]{1,2}.*tr?u") ~
-        "out-patient",
-      str_detect(
-        in_out_patient,
-        "((di?eu t[tr][ij]{1})?.*no[it]{1}.*tr?[ui])|(n{1,2}hap vien)"
-      ) ~
-        "in-patient",
-      str_detect(
-        in_out_patient,
-        "((ra|xuat|tron|bo).*vien)|((xin|bo|cho).*(ve|xv))|(ve nha)|(bo kham)"
-      ) ~
-        "discharged",
-      str_detect(in_out_patient, "chuyen.*(benh|bv|vie[nb]|tuyen|khoa)") ~
-        "referred",
-      .default = "miscellanous"
+      in_out_patient == "noi tru" ~ "in-patient",
+      in_out_patient == "ngoai tru" ~ "out-patient",
+      .default = "other"
     )
   )
 ```
 
-This is as best as I can do...
-
 ```{r}
-s10_2017_2022 %>%
+s8_2017_2025 %>%
   tabyl(in_out_patient)
 ```
 
 ```{r}
-s10_2017_2022 %>% skim()
+s8_2017_2025 %>% skim()
 ```
 
 ### Wrap up
-Probably finished cleaning 2017-2022 data
+
+Probably finished cleaning 2017-2025 data
 
 Let's check final number of rows
 
 ```{r}
-nrow(s10_2017_2022)
-start_nrow2 - nrow(s10_2017_2022)
-(start_nrow2 - nrow(s10_2017_2022)) / start_nrow2 * 100
+nrow(s8_2017_2025)
+start_nrow2 - nrow(s8_2017_2025)
+(start_nrow2 - nrow(s8_2017_2025)) / start_nrow2 * 100
 ```
 
-Lost about 2% of rows
+Lost less than 1% of rows
+
+## Data after the 2025 reform
+
+Extract the data
+
+```{r}
+raw_aug2025 <- xlsx_raws[[3]] |> bind_rows()
+```
+
+Quick skim at the data
+
+```{r}
+skim(raw_aug2025)
+```
+
+The actual columns based on our columns of interest are (with
+`complete_rate`):
+
+-   `age` = `tuoi` (1)
+
+-   `date of admission` = `ngay_nhap_vien_kham_benh` (1)
+
+-   `district` = `quan_huyen_cu` (0.804)
+
+-   `commune` = `phuong_xa_cu` (0.804)
+
+-   `new_commune` = `phuong_xa_moi` (1)
+
+-   `icd` = `phan_do_benh` (1)
+
+-   `in-patient` = `hinh_thuc_dieu_tri` (1.00)
+
+### Selecting columns of interest
+
+```{r}
+s1_aug2025 <- raw_aug2025 %>%
+  select(
+    tuoi,
+    ngay_nhap_vien_kham_benh,
+    quan_huyen_cu,
+    phuong_xa_cu,
+    phuong_xa_moi,
+    phan_do_benh,
+    hinh_thuc_dieu_tri
+  )
+s1_aug2025 %>% skim()
+```
+
+Keeping track of raw number of rows at start to see how much lost during
+data cleaning
+
+```{r}
+start_nrow3 <- nrow(s1_aug2025)
+start_nrow3
+```
+
+### Rename columns
+
+Let's rename columns before continuing
+
+```{r}
+s2_aug2025 <- s1_aug2025 %>%
+  rename(
+    age = tuoi,
+    date = ngay_nhap_vien_kham_benh,
+    district = quan_huyen_cu,
+    commune = phuong_xa_cu,
+    new_commune = phuong_xa_moi,
+    icd = phan_do_benh,
+    in_out_patient = hinh_thuc_dieu_tri
+  )
+
+s2_aug2025 %>% skim()
+```
+
+### Fix age
+
+Age looks quite good in this case, no YoB in data and no negative value
+
+However, filter out cases where age \> 91 to be consistent
+
+```{r}
+s2_aug2025 %>% tabyl(age)
+```
+
+```{r}
+s3_aug2025 <- s2_aug2025 %>%
+  filter(age >= 0, age < 91)
+
+s3_aug2025 %>% tabyl(age)
+```
+
+```{r}
+s3_aug2025 %>% skim()
+```
+
+### Fix dates
+
+Date data is in `datetime`, convert to `date` only
+
+```{r}
+s4_aug2025 <- s3_aug2025 %>%
+  mutate(date = convert_to_date(date))
+
+s4_aug2025 %>% skim()
+```
+
+### Fix ICD
+
+```{r}
+s4_aug2025 %>%
+  mutate(year = year(date), icd = tolower(icd)) %>%
+  tabyl(icd, year)
+```
+
+Mostly inconsistent letter casing, the classes are rather consistent
+
+```{r}
+s5_aug2025 <- s4_aug2025 %>%
+  mutate(icd = tolower(icd))
+
+s5_aug2025 %>%
+  mutate(year = year(date)) %>%
+  tabyl(icd, year)
+```
+
+### Fix districts
+
+```{r}
+s6_aug2025 <- s5_aug2025 %>% mutate(district = tolower(district))
+
+s6_aug2025 %>% skim()
+```
+
+### Fix in-/out-patient
+
+Now let's fix in-patient and out-patient classification
+
+```{r}
+s6_aug2025 %>% tabyl(in_out_patient)
+```
+
+```{r}
+s7_aug2025 <- s6_aug2025 %>%
+  mutate(
+    in_out_patient = stri_trans_general(in_out_patient, id = "Latin-ASCII") %>%
+      tolower()
+  )
+
+s7_aug2025 %>%
+  tabyl(in_out_patient) %>%
+  arrange(desc(n))
+```
+
+Relabel `in_out_patient` status
+
+```{r}
+s8_aug2025 <- s7_aug2025 %>%
+  mutate(
+    in_out_patient = case_when(
+      in_out_patient == "noi tru" ~ "in-patient",
+      in_out_patient == "ngoai tru" ~ "out-patient",
+      .default = "other"
+    )
+  )
+```
+
+```{r}
+s8_aug2025 %>%
+  tabyl(in_out_patient)
+```
+
+```{r}
+s8_aug2025 %>% skim()
+```
+
+### Wrap up
+
+Check final number of rows
+
+```{r}
+nrow(s8_aug2025)
+start_nrow3 - nrow(s8_aug2025)
+(start_nrow3 - nrow(s8_aug2025)) / start_nrow3 * 100
+```
 
 # Data joining
 
-Join the 2 data tibles
+For now, we only need incidence from `2000-2020` with the label for the
+corresponding new commune
 
 ```{r}
-cleaned_incidence_dat <- s4_2000_2016 %>% bind_rows(s10_2017_2022)
-
+cleaned_incidence_dat <- s4_2000_2016 |> 
+  bind_rows(s8_2017_2025) |> 
+  filter(date < as.Date("2020-01-01")) 
 cleaned_incidence_dat %>% skim()
 ```
-
 
 ```{r}
 cleaned_incidence_dat %>%
@@ -524,81 +652,64 @@ cleaned_incidence_dat %>%
   scale_x_date(date_breaks = "1 year", date_labels = "%Y")
 ```
 
-## Hospital names
-
-```{r}
-cleaned_incidence_dat %>% tabyl(hospital)
-```
-
-Normalise hospital names
-```{r}
-s1_cleaned_incidence_dat <- cleaned_incidence_dat %>%
-  mutate(
-    hospital = stri_trans_general(hospital, id = "Latin-ASCII") %>% tolower(),
-    hospital = gsub("\\s+", " ", hospital) %>% str_replace("bv", "benh vien")
-  )
-
-s1_cleaned_incidence_dat %>%
-  tabyl(hospital) %>%
-  arrange(desc(n))
-```
-
-Coding the names of the most busy hospitals
-```{r}
-s2_cleaned_incidence_dat <- s1_cleaned_incidence_dat %>%
-  mutate(
-    hospital = case_when(
-      str_detect(hospital, "benh vien benh nhiet doi") ~ "HTD",
-      str_detect(hospital, "nhi dong 1") ~ "CH1",
-      str_detect(hospital, "(nhi dong 2)|nd2") ~ "CH2",
-      str_detect(hospital, "nhi dong thanh pho") ~ "CHC",
-      str_detect(hospital, "tan phu") ~ "TPH",
-      .default = hospital
-    )
-  )
-
-s2_cleaned_incidence_dat %>%
-  tabyl(hospital) %>%
-  arrange(desc(n))
-```
-
 ## Normalise district and commune
 
 Let's normalise district names from the 2 different reporting systems
+
 ```{r}
-s2_cleaned_incidence_dat %>%
+cleaned_incidence_dat %>%
   tabyl(district)
 ```
 
 ```{r}
-s3_cleaned_incidence_dat <- s2_cleaned_incidence_dat %>%
+s2_cleaned_incidence_dat <- cleaned_incidence_dat %>%
   mutate(
     district = stri_trans_general(district, id = "Latin-ASCII") %>% tolower()
   ) %>%
   mutate(district = str_remove(district, "huyen|quan") %>% trimws()) %>%
   mutate(district = trimws(district, which = "left", whitespace = "0"))
 
-s3_cleaned_incidence_dat %>%
-  tabyl(district)
+s2_cleaned_incidence_dat %>%
+  tabyl(district) |> 
+  dim()
 ```
 
 Now normalise commune names
 
 ```{r}
-s3_cleaned_incidence_dat %>%
+s2_cleaned_incidence_dat %>%
   tabyl(district, commune)
 ```
 
 ```{r}
-s3_cleaned_incidence_dat %>%
-  filter(between(date, as.Date("2017-01-01"), as.Date("2020-01-01"))) %>%
-  tabyl(in_out_patient)
+s3_cleaned_incidence_dat <- s2_cleaned_incidence_dat |> 
+  mutate(
+    commune = stri_trans_general(commune, id = "Latin-ASCII") %>% tolower(),
+    commune = str_remove(commune, "phuong|xa|thi tran") %>% trimws(),
+    commune = trimws(commune, which = "left", whitespace = "0"),
+    commune = case_when(
+      commune == "khong ro" ~ NA,
+      commune == "" ~ NA,
+      .default = commune
+    )
+  )
+```
+
+```{r}
+s4_cleaned_incidence_dat <- s3_cleaned_incidence_dat  |> 
+  select(sex, age, date, district, commune, new_commune, in_out_patient) |> 
+  rename(
+    date_admitted = date,
+    status = in_out_patient
+  )
 ```
 
 ## Export to CSV
 
 ```{r}
-s3_cleaned_incidence_dat %>% write_csv("incidence_full.csv")
+s4_cleaned_incidence_dat |> 
+  arrange(date_admitted) |> 
+  write_csv("out/incidence_clean_2000_2020.csv")
 ```
 
 # Data viz
@@ -606,17 +717,17 @@ s3_cleaned_incidence_dat %>% write_csv("incidence_full.csv")
 ## Raw time series
 
 ```{r eval=FALSE}
-raw_ts_plot_dat <- s3_cleaned_incidence_dat %>%
-  group_by(across(any_of(c("district", "date")))) %>%
+raw_ts_plot_dat <- s4_cleaned_incidence_dat %>%
+  group_by(across(any_of(c("district", "date_admitted")))) %>%
   tally() %>%
-  complete(date, fill = list(n = 0)) %>%
+  complete(date_admitted, fill = list(n = 0)) %>%
   mutate(
-    year = year(date),
-    isoweek = isoweek(date),
+    year = year(date_admitted),
+    isoweek = isoweek(date_admitted),
     # isoweek = ifelse(isoweek == 53, 52, isoweek)
   ) %>%
   group_by(year, isoweek) %>%
-  summarise(date = min(date), n = sum(n))
+  summarise(date = min(date_admitted), n = sum(n))
 
 raw_ts_plot_dat %>%
   ggplot(aes(x = date, y = n)) +
@@ -685,28 +796,28 @@ ggsave("plots/raw_ts_plot.jpg", width = 10)
 ## Incidence by case status
 
 ```{r}
-case_status_plot_dat <- s3_cleaned_incidence_dat %>%
-  group_by(date, in_out_patient) %>%
+case_status_plot_dat <- s4_cleaned_incidence_dat %>%
+  group_by(date_admitted, status) %>%
   tally() %>%
   ungroup() %>%
-  complete(date, in_out_patient, fill = list(n = 0)) %>%
+  complete(date_admitted, status, fill = list(n = 0)) %>%
   mutate(
-    year = year(date),
-    isoweek = isoweek(date),
+    year = year(date_admitted),
+    isoweek = isoweek(date_admitted),
     # isoweek = ifelse(isoweek == 53, 52, isoweek)
   ) %>%
-  group_by(year, isoweek, in_out_patient) %>%
-  summarise(date = min(date), n = sum(n))
+  group_by(year, isoweek, status) %>%
+  summarise(date = min(date_admitted), n = sum(n))
 
 p1 <- case_status_plot_dat %>%
-  ggplot(aes(x = date, y = n, fill = in_out_patient)) +
+  ggplot(aes(x = date, y = n, fill = status)) +
   geom_area() +
   ggtitle("Weekly dengue incidence by case status")
 
 p2 <- case_status_plot_dat %>%
   group_by(date) %>%
   mutate(n_pct = n / sum(n)) %>%
-  ggplot(aes(x = date, y = n_pct, fill = in_out_patient)) +
+  ggplot(aes(x = date, y = n_pct, fill = status)) +
   geom_area() +
   ggtitle("Percentage of weekly dengue incidence by case status")
 
@@ -734,123 +845,23 @@ p2 <- case_status_plot_dat %>%
 ggsave("plots/case_status_plot.jpg", width = 10)
 ```
 
-## Total number of cases per hospital
-
-```{r}
-library(data.table)
-library(dtplyr)
-
-hospital_plot_dat <- lazy_dt(s3_cleaned_incidence_dat) %>%
-  group_by(date, in_out_patient, hospital) %>%
-  tally() %>%
-  group_by(hospital, .add = TRUE) %>%
-  complete(fill = list(n = NA)) %>%
-  mutate(
-    year = year(date),
-    isoweek = isoweek(date),
-  ) %>%
-  group_by(year, isoweek, in_out_patient, hospital) %>%
-  summarise(date = min(date), n = sum(n)) %>%
-  ungroup() %>%
-  as_tibble()
-
-hospital_lvl <- hospital_plot_dat %>%
-  group_by(hospital) %>%
-  summarise(hosp_count = sum(n, na.rm = TRUE)) %>%
-  arrange(desc(hosp_count)) %>%
-  pull(hospital)
-
-
-hospital_plot_dat %>%
-  drop_na() %>%
-  mutate(
-        # hospitals take make up less the 5% of total cases will be put in "Other"
-    hospital_label = fct(hospital, levels = hospital_lvl) %>%
-fct_lump_prop(0.05)
-  ) %>%
-  group_by(date, in_out_patient, hospital_label) %>%
-  summarise(count = sum(n, na.rm = TRUE)) %>%
-  ungroup() %>%
-  complete(date, in_out_patient, hospital_label, fill = list(count = NA)) %>%
-  ggplot(aes(x = date, y = count, color = in_out_patient)) +
-geom_point(alpha = 0.8) +
-  # geom_line() +
-  geom_vline(
-    xintercept = as.Date("2020/01/01"),
-    linetype = "dashed",
-    alpha = 0.5
-) +
-  scale_x_date(
-"",
-    date_breaks = "2 years",
-    date_minor_breaks = "1 year",
-    date_labels = "%Y"
-  ) +
-  scale_y_continuous("") +
-  scale_color_brewer(
-    "Case status",
-    labels = str_to_title,
-    palette = "Set1"
-  ) +
-  facet_wrap(
-    ~hospital_label,
-    ncol = 1,
-    scales = "free_y"
-  ) +
-  ggtitle("Weekly dengue incidence per hospital per case status")
-
-
-ggsave("plots/hosp_dist_plot.jpg", width = 10)
-```
-
-We can see some weird period where there are so little in-patient data from big hospitals like in 2017.
-
-Let's zoom into that
-
-```{r}
-s3_cleaned_incidence_dat %>%
-  filter(year(date) == 2017, in_out_patient == "in-patient") %>%
-  tabyl(hospital) %>%
-  arrange(desc(n))
-
-s3_cleaned_incidence_dat %>%
-  filter(year(date) == 2017, in_out_patient == "in-patient") %>%
-  mutate(
-    week = lubridate::floor_date(date, "week"),
-    hospital = factor(hospital, levels = hospital_order) %>% fct_lump_prop(0.05)
-  ) %>%
-  group_by(week, in_out_patient, hospital) %>%
-  tally() %>%
-  ggplot(aes(x = week, y = n, color = in_out_patient)) +
-  geom_line() +
-  geom_point(size = 0.5) +
-  scale_x_date(
-    date_breaks = "1 year",
-    date_labels = "%Y",
-    minor_breaks = NULL
-  ) +
-  facet_wrap(~hospital, ncol = 1) +
-  #   facet_wrap(~hospital, ncol = 1, scales = "free_y")
-  theme(legend.position = "none")
-```
-
 ## Data availability map
 
 ```{r}
-s3_cleaned_incidence_dat %>%
-  mutate(week = floor_date(date, "week")) %>%
-  group_by(week, in_out_patient, hospital) %>%
+s4_cleaned_incidence_dat %>%
+  mutate(week = floor_date(date_admitted, "week")) %>%
+  group_by(week, status, district) %>%
   tally() %>%
   ungroup() %>%
-  complete(week, in_out_patient, hospital) %>%
-  filter(in_out_patient %in% c("in-patient", "out-patient")) %>%
-  group_by(week, in_out_patient, hospital) %>%
+  complete(week, status, district) %>%
+  filter(status %in% c("in-patient", "out-patient")) %>%
+  group_by(week, status, district) %>%
   mutate(total_n = sum(n, na.rm = TRUE)) %>%
   ungroup() %>%
-  mutate(hospital = fct_lump_prop(hospital, prop = 0.01, w = total_n)) %>%
-  ggplot(aes(x = week, y = fct_reorder(hospital, total_n), fill = n)) +
+  mutate(hospital = fct_lump_prop(district, prop = 0.01, w = total_n)) %>%
+  ggplot(aes(x = week, y = fct_reorder(district, total_n), fill = n)) +
   geom_raster() +
-  facet_wrap(~in_out_patient, ncol = 1) +
+  facet_wrap(~status, ncol = 1) +
   theme(legend.position = "none") +
   scale_x_date(
     date_breaks = "1 year",
@@ -858,5 +869,4 @@ s3_cleaned_incidence_dat %>%
     minor_breaks = NULL
   ) +
   scale_fill_viridis_c(na.value = "transparent")
-
 ```
