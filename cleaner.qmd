@@ -35,7 +35,11 @@ Read raw excel files and quickly clean column names with
 `janitor::clean_names()`
 
 ```{r}
-xlsx_raws <- list.files("incidence_data", pattern = "xlsx", full.names = TRUE) %>%
+xlsx_raws <- list.files(
+  "incidence_data",
+  pattern = "xlsx",
+  full.names = TRUE
+) %>%
   map(
     ~ map(excel_sheets(.x), \(sh) {
       suppressWarnings(read_excel(.x, sheet = sh)) %>% clean_names()
@@ -111,7 +115,18 @@ The actual columns based on our columns of interest are (with
 
 ```{r}
 s1_2000_2016 <- raw_2000_2016 %>%
-  select(hoten, gioi, tuoi, ng_sinh, ng_vaovien, qh, px, px_moi, nguon_du_lieu, m_icd)
+  select(
+    hoten,
+    gioi,
+    tuoi,
+    ng_sinh,
+    ng_vaovien,
+    qh,
+    px,
+    px_moi,
+    nguon_du_lieu,
+    m_icd
+  )
 # s1_2000_2016
 ```
 
@@ -198,13 +213,13 @@ Impossible to know what "I" and "N", treat these as NA instead
 Relabel `sex` column
 
 ```{r}
-s3_2000_2016 <- s3_2000_2016 |> 
+s3_2000_2016 <- s3_2000_2016 |>
   mutate(
     sex = tolower(sex),
     sex = case_when(
       sex == "g" ~ "f",
       sex == "t" ~ "m",
-      .default=NA
+      .default = NA
     )
   )
 ```
@@ -639,9 +654,9 @@ For now, we only need incidence from `2000-2020` with the label for the
 corresponding new commune
 
 ```{r}
-cleaned_incidence_dat <- s4_2000_2016 |> 
-  bind_rows(s8_2017_2025) |> 
-  filter(date < as.Date("2020-01-01")) 
+cleaned_incidence_dat <- s4_2000_2016 |>
+  bind_rows(s8_2017_2025) |>
+  filter(date < as.Date("2020-01-01"))
 cleaned_incidence_dat %>% skim()
 ```
 
@@ -670,7 +685,7 @@ s2_cleaned_incidence_dat <- cleaned_incidence_dat %>%
   mutate(district = trimws(district, which = "left", whitespace = "0"))
 
 s2_cleaned_incidence_dat %>%
-  tabyl(district) |> 
+  tabyl(district) |>
   dim()
 ```
 
@@ -682,7 +697,7 @@ s2_cleaned_incidence_dat %>%
 ```
 
 ```{r}
-s3_cleaned_incidence_dat <- s2_cleaned_incidence_dat |> 
+s3_cleaned_incidence_dat <- s2_cleaned_incidence_dat |>
   mutate(
     commune = stri_trans_general(commune, id = "Latin-ASCII") %>% tolower(),
     commune = str_remove(commune, "phuong|xa|thi tran") %>% trimws(),
@@ -696,8 +711,8 @@ s3_cleaned_incidence_dat <- s2_cleaned_incidence_dat |>
 ```
 
 ```{r}
-s4_cleaned_incidence_dat <- s3_cleaned_incidence_dat  |> 
-  select(sex, age, date, district, commune, new_commune, in_out_patient) |> 
+s4_cleaned_incidence_dat <- s3_cleaned_incidence_dat |>
+  select(sex, age, date, district, commune, new_commune, in_out_patient) |>
   rename(
     date_admitted = date,
     status = in_out_patient
@@ -707,8 +722,8 @@ s4_cleaned_incidence_dat <- s3_cleaned_incidence_dat  |>
 ## Export to CSV
 
 ```{r}
-s4_cleaned_incidence_dat |> 
-  arrange(date_admitted) |> 
+s4_cleaned_incidence_dat |>
+  arrange(date_admitted) |>
   write_csv("out/incidence_clean_2000_2020.csv")
 ```
 
