@@ -36,7 +36,7 @@ Read raw excel files and quickly clean column names with
 
 ```{r}
 xlsx_raws <- list.files(
-  "incidence_data",
+  "incidence_data_geocoded",
   pattern = "xlsx",
   full.names = TRUE
 ) %>%
